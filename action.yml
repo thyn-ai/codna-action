@@ -1,0 +1,150 @@
+name: "codna"
+description: "Install codna from PyPI, fix failing CI, or classify reachable SARIF findings."
+branding:
+  icon: "git-pull-request"
+  color: "purple"
+
+inputs:
+  api-key:
+    description: "Optional Codna engine API key for hosted or engine-behind runs. Local-runtime runs can leave this empty."
+    required: false
+    default: ""
+  package-spec:
+    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.1.31."
+    required: false
+    default: "codna"
+  mode:
+    description: "What codna does: 'fix' opens a fix PR; 'secure' runs read-only SARIF reachability classification."
+    required: false
+    default: "fix"
+  issue:
+    description: "fix mode: what is broken. Optional if from-junit is set."
+    required: false
+    default: ""
+  from-junit:
+    description: "fix mode: path to a JUnit/pytest XML report; codna derives the failing tests from it."
+    required: false
+    default: ""
+  from-sarif:
+    description: "secure mode: path to the scanner's SARIF report. Required when mode=secure."
+    required: false
+    default: ""
+  reachability-engine:
+    description: "secure mode reachability engine: remote or local."
+    required: false
+    default: "remote"
+  verification:
+    description: "secure mode optional codna-security.yaml manifest."
+    required: false
+    default: ""
+  engine-url:
+    description: "Optional Codna engine URL. Empty uses codna's default local runtime."
+    required: false
+    default: ""
+  base-branch:
+    description: "Base branch for the pull request. Empty uses the repository default branch."
+    required: false
+    default: ""
+  model:
+    description: "Planner model. Use provider-qualified IDs for deterministic routing, e.g. openai/gpt-5.5."
+    required: false
+    default: "repository.verified_agentic_v1"
+  github-token:
+    description: "Token with contents:write and pull-requests:write. Defaults to the workflow token."
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  pull-request-url:
+    description: "URL of the pull request codna opened. Empty if no PR was opened."
+    value: ${{ steps.codna.outputs.pull_request_url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      with:
+        bun-version: 1.3.13
+
+    - name: Install codna
+      shell: bash
+      env:
+        CODNA_ACTION_PACKAGE_SPEC: ${{ inputs.package-spec }}
+      run: |
+        set -euo pipefail
+        package_spec="${CODNA_ACTION_PACKAGE_SPEC:-codna}"
+        if [ -z "$package_spec" ]; then
+          echo "codna action package-spec cannot be empty" >&2
+          exit 2
+        fi
+        if command -v pipx >/dev/null 2>&1; then
+          pipx install --pip-args=--only-binary=codna --force "$package_spec"
+        else
+          python3 -m pip install --user --upgrade --only-binary=codna "$package_spec"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        fi
+        codna --version
+
+    - name: codna fix or secure
+      id: codna
+      shell: bash
+      env:
+        CODNA_API_KEY: ${{ inputs.api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CODNA_ACTION_REPOSITORY: ${{ github.repository }}
+        CODNA_ACTION_SHA: ${{ github.sha }}
+        CODNA_ACTION_MODE: ${{ inputs.mode }}
+        CODNA_ACTION_MODEL: ${{ inputs.model }}
+        CODNA_ACTION_ISSUE: ${{ inputs.issue }}
+        CODNA_ACTION_FROM_JUNIT: ${{ inputs.from-junit }}
+        CODNA_ACTION_FROM_SARIF: ${{ inputs.from-sarif }}
+        CODNA_ACTION_REACHABILITY_ENGINE: ${{ inputs.reachability-engine }}
+        CODNA_ACTION_VERIFICATION: ${{ inputs.verification }}
+        CODNA_ACTION_BASE_BRANCH: ${{ inputs.base-branch }}
+        CODNA_ACTION_ENGINE_URL: ${{ inputs.engine-url }}
+        CODNA_AGENT_CORE_READY_TIMEOUT_SECONDS: "120"
+      run: |
+        set -euo pipefail
+        repo_url="https://github.com/${CODNA_ACTION_REPOSITORY}.git"
+        if [ "$CODNA_ACTION_MODE" = "secure" ]; then
+          if [ -z "$CODNA_ACTION_FROM_SARIF" ]; then
+            echo "codna: mode=secure requires 'from-sarif'." >&2
+            exit 2
+          fi
+          args=(secure "$repo_url" --ref "$CODNA_ACTION_SHA" --from-sarif "$CODNA_ACTION_FROM_SARIF" --engine "$CODNA_ACTION_REACHABILITY_ENGINE")
+          [ -n "$CODNA_ACTION_VERIFICATION" ] && args+=(--verification "$CODNA_ACTION_VERIFICATION")
+        elif [ "$CODNA_ACTION_MODE" = "fix" ]; then
+          args=(fix "$repo_url" --ref "$CODNA_ACTION_SHA" --open-pr --json --model "$CODNA_ACTION_MODEL")
+          [ -n "$CODNA_ACTION_ISSUE" ] && args+=(--issue "$CODNA_ACTION_ISSUE")
+          [ -n "$CODNA_ACTION_FROM_JUNIT" ] && args+=(--from-junit "$CODNA_ACTION_FROM_JUNIT")
+          [ -n "$CODNA_ACTION_BASE_BRANCH" ] && args+=(--base-branch "$CODNA_ACTION_BASE_BRANCH")
+        else
+          echo "codna: unsupported mode '$CODNA_ACTION_MODE' (expected fix or secure)." >&2
+          exit 2
+        fi
+        if [ -n "$CODNA_ACTION_ENGINE_URL" ]; then
+          export CODNA_ENGINE_URL="$CODNA_ACTION_ENGINE_URL"
+        fi
+        set +e
+        out="$(codna "${args[@]}" 2>/tmp/codna.err)"
+        status=$?
+        set -e
+        cat /tmp/codna.err >&2 || true
+        echo "$out"
+        if [ "$CODNA_ACTION_MODE" = "secure" ]; then
+          url=""
+        else
+          url="$(printf '%s' "$out" | python3 -c 'import json, sys; print((json.loads(sys.stdin.read()) or {}).get("pull_request_url") or "")' 2>/dev/null || true)"
+          if [ -z "$url" ]; then
+            url="$(printf '%s' "$out" | grep -Eo 'https://github\.com/[^[:space:]"]+/pull/[0-9]+' | head -1 || true)"
+          fi
+        fi
+        echo "pull_request_url=$url" >> "$GITHUB_OUTPUT"
+        {
+          echo "### codna"
+          if [ -n "$url" ]; then echo "Opened a PR: $url"; else echo '```'; echo "$out"; echo '```'; fi
+        } >> "$GITHUB_STEP_SUMMARY"
+        if [ "$status" -ne 0 ]; then
+          exit "$status"
+        fi
