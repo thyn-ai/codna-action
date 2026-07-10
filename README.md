@@ -59,6 +59,10 @@ jobs:
           model: openai/gpt-5
 ```
 
+On `pull_request` events the action fetches the PR base branch and reviews
+`origin/<base>...HEAD`. For non-PR events, set `diff` explicitly, for example
+`diff: origin/main...HEAD`.
+
 ## Secure mode
 
 ```yaml
