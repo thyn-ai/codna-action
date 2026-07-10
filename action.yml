@@ -120,6 +120,7 @@ runs:
         CODNA_ACTION_PR: ${{ inputs.pr }}
         CODNA_ACTION_PR_DEFAULT: ${{ github.event.pull_request.number }}
         CODNA_ACTION_DIFF: ${{ inputs.diff }}
+        CODNA_ACTION_BASE_REF: ${{ github.base_ref }}
         CODNA_ACTION_POST: ${{ inputs.post }}
         CODNA_ACTION_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
         CODNA_ACTION_BLOCKING: ${{ inputs.blocking }}
@@ -141,9 +142,18 @@ runs:
             echo "codna: mode=review needs a PR (input 'pr' or a pull_request event)." >&2
             exit 2
           fi
-          args=(review . --pr "$pr" --json --model "$CODNA_ACTION_MODEL")
+          review_diff="$CODNA_ACTION_DIFF"
+          if [ -z "$review_diff" ] && [ -n "$CODNA_ACTION_BASE_REF" ]; then
+            git check-ref-format --branch "$CODNA_ACTION_BASE_REF" >/dev/null
+            git fetch --no-tags --depth=1 origin "+refs/heads/${CODNA_ACTION_BASE_REF}:refs/remotes/origin/${CODNA_ACTION_BASE_REF}"
+            review_diff="origin/${CODNA_ACTION_BASE_REF}...HEAD"
+          fi
+          if [ -z "$review_diff" ]; then
+            echo "codna: mode=review needs a diff range outside pull_request events; set input 'diff'." >&2
+            exit 2
+          fi
+          args=(review . --pr "$pr" --json --model "$CODNA_ACTION_MODEL" --diff "$review_diff")
           [ "$CODNA_ACTION_POST" != "false" ] && args+=(--post)
-          [ -n "$CODNA_ACTION_DIFF" ] && args+=(--diff "$CODNA_ACTION_DIFF")
           [ -n "$CODNA_ACTION_MIN_CONFIDENCE" ] && args+=(--min-confidence "$CODNA_ACTION_MIN_CONFIDENCE")
           [ "$CODNA_ACTION_BLOCKING" = "true" ] && args+=(--blocking)
           [ -n "$CODNA_ACTION_EFFORT" ] && args+=(--effort "$CODNA_ACTION_EFFORT")
