@@ -1,44 +1,64 @@
 name: "codna"
-description: "Install codna from PyPI, fix failing CI, or classify reachable SARIF findings."
+description: "Install codna from PyPI, then fix, review, or classify a repository through the same packaged local runtime users run locally."
 branding:
   icon: "git-pull-request"
   color: "purple"
 
 inputs:
   api-key:
-    description: "Optional Codna engine API key for hosted or engine-behind runs. Local-runtime runs can leave this empty."
+    description: "Optional Codna license / metering key. Local packaged runs can leave this empty when provider keys are supplied by environment."
     required: false
     default: ""
   package-spec:
-    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.1.31."
+    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.1.43."
     required: false
     default: "codna"
   mode:
-    description: "What codna does: 'fix' opens a fix PR; 'secure' runs read-only SARIF reachability classification."
+    description: "What codna does: 'fix' opens a fix PR; 'review' posts or computes PR review findings; 'secure' runs read-only SARIF reachability classification."
     required: false
     default: "fix"
+  pr:
+    description: "Review mode: PR to review/post to: number, owner/repo#123, or PR URL. Defaults to the triggering pull_request number."
+    required: false
+    default: ""
+  diff:
+    description: "Review mode: optional diff range, e.g. origin/main...HEAD. Defaults to the PR base...head."
+    required: false
+    default: ""
+  post:
+    description: "Review mode: post findings to the PR. Set 'false' to compute findings only."
+    required: false
+    default: "true"
+  min-confidence:
+    description: "Review mode: only report findings at or above this confidence."
+    required: false
+    default: ""
+  blocking:
+    description: "Review mode: 'true' makes the Codna Review check fail on a blocking-severity finding."
+    required: false
+    default: "false"
+  effort:
+    description: "Review mode: review depth: low, medium, or high."
+    required: false
+    default: ""
   issue:
-    description: "fix mode: what is broken. Optional if from-junit is set."
+    description: "Fix mode: what is broken. Optional if from-junit is set."
     required: false
     default: ""
   from-junit:
-    description: "fix mode: path to a JUnit/pytest XML report; codna derives the failing tests from it."
+    description: "Fix mode: path to a JUnit/pytest XML report; codna derives failing tests from it."
     required: false
     default: ""
   from-sarif:
-    description: "secure mode: path to the scanner's SARIF report. Required when mode=secure."
+    description: "Secure mode: path to the scanner's SARIF report. Required when mode=secure."
     required: false
     default: ""
   reachability-engine:
-    description: "secure mode reachability engine: remote or local."
+    description: "Secure mode reachability engine: remote or local."
     required: false
     default: "remote"
   verification:
-    description: "secure mode optional codna-security.yaml manifest."
-    required: false
-    default: ""
-  engine-url:
-    description: "Optional Codna engine URL. Empty uses codna's default local runtime."
+    description: "Secure mode optional codna-security.yaml manifest."
     required: false
     default: ""
   base-branch:
@@ -46,7 +66,7 @@ inputs:
     required: false
     default: ""
   model:
-    description: "Planner model. Use provider-qualified IDs for deterministic routing, e.g. openai/gpt-5.5."
+    description: "Planner/review model. Use provider-qualified IDs for deterministic routing, e.g. openai/gpt-5."
     required: false
     default: "repository.verified_agentic_v1"
   github-token:
@@ -62,11 +82,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up Bun
-      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-      with:
-        bun-version: 1.3.13
-
     - name: Install codna
       shell: bash
       env:
@@ -86,7 +101,7 @@ runs:
         fi
         codna --version
 
-    - name: codna fix or secure
+    - name: codna fix / review / secure
       id: codna
       shell: bash
       env:
@@ -102,7 +117,13 @@ runs:
         CODNA_ACTION_REACHABILITY_ENGINE: ${{ inputs.reachability-engine }}
         CODNA_ACTION_VERIFICATION: ${{ inputs.verification }}
         CODNA_ACTION_BASE_BRANCH: ${{ inputs.base-branch }}
-        CODNA_ACTION_ENGINE_URL: ${{ inputs.engine-url }}
+        CODNA_ACTION_PR: ${{ inputs.pr }}
+        CODNA_ACTION_PR_DEFAULT: ${{ github.event.pull_request.number }}
+        CODNA_ACTION_DIFF: ${{ inputs.diff }}
+        CODNA_ACTION_POST: ${{ inputs.post }}
+        CODNA_ACTION_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+        CODNA_ACTION_BLOCKING: ${{ inputs.blocking }}
+        CODNA_ACTION_EFFORT: ${{ inputs.effort }}
         CODNA_AGENT_CORE_READY_TIMEOUT_SECONDS: "120"
       run: |
         set -euo pipefail
@@ -114,17 +135,26 @@ runs:
           fi
           args=(secure "$repo_url" --ref "$CODNA_ACTION_SHA" --from-sarif "$CODNA_ACTION_FROM_SARIF" --engine "$CODNA_ACTION_REACHABILITY_ENGINE")
           [ -n "$CODNA_ACTION_VERIFICATION" ] && args+=(--verification "$CODNA_ACTION_VERIFICATION")
+        elif [ "$CODNA_ACTION_MODE" = "review" ]; then
+          pr="${CODNA_ACTION_PR:-$CODNA_ACTION_PR_DEFAULT}"
+          if [ -z "$pr" ]; then
+            echo "codna: mode=review needs a PR (input 'pr' or a pull_request event)." >&2
+            exit 2
+          fi
+          args=(review . --pr "$pr" --json --model "$CODNA_ACTION_MODEL")
+          [ "$CODNA_ACTION_POST" != "false" ] && args+=(--post)
+          [ -n "$CODNA_ACTION_DIFF" ] && args+=(--diff "$CODNA_ACTION_DIFF")
+          [ -n "$CODNA_ACTION_MIN_CONFIDENCE" ] && args+=(--min-confidence "$CODNA_ACTION_MIN_CONFIDENCE")
+          [ "$CODNA_ACTION_BLOCKING" = "true" ] && args+=(--blocking)
+          [ -n "$CODNA_ACTION_EFFORT" ] && args+=(--effort "$CODNA_ACTION_EFFORT")
         elif [ "$CODNA_ACTION_MODE" = "fix" ]; then
           args=(fix "$repo_url" --ref "$CODNA_ACTION_SHA" --open-pr --json --model "$CODNA_ACTION_MODEL")
           [ -n "$CODNA_ACTION_ISSUE" ] && args+=(--issue "$CODNA_ACTION_ISSUE")
           [ -n "$CODNA_ACTION_FROM_JUNIT" ] && args+=(--from-junit "$CODNA_ACTION_FROM_JUNIT")
           [ -n "$CODNA_ACTION_BASE_BRANCH" ] && args+=(--base-branch "$CODNA_ACTION_BASE_BRANCH")
         else
-          echo "codna: unsupported mode '$CODNA_ACTION_MODE' (expected fix or secure)." >&2
+          echo "codna: unsupported mode '$CODNA_ACTION_MODE' (expected fix, review, or secure)." >&2
           exit 2
-        fi
-        if [ -n "$CODNA_ACTION_ENGINE_URL" ]; then
-          export CODNA_ENGINE_URL="$CODNA_ACTION_ENGINE_URL"
         fi
         set +e
         out="$(codna "${args[@]}" 2>/tmp/codna.err)"
@@ -132,13 +162,13 @@ runs:
         set -e
         cat /tmp/codna.err >&2 || true
         echo "$out"
-        if [ "$CODNA_ACTION_MODE" = "secure" ]; then
-          url=""
-        else
+        if [ "$CODNA_ACTION_MODE" = "fix" ]; then
           url="$(printf '%s' "$out" | python3 -c 'import json, sys; print((json.loads(sys.stdin.read()) or {}).get("pull_request_url") or "")' 2>/dev/null || true)"
           if [ -z "$url" ]; then
             url="$(printf '%s' "$out" | grep -Eo 'https://github\.com/[^[:space:]"]+/pull/[0-9]+' | head -1 || true)"
           fi
+        else
+          url=""
         fi
         echo "pull_request_url=$url" >> "$GITHUB_OUTPUT"
         {
