@@ -1,4 +1,19 @@
-# codna GitHub Action
+<div align="center">
+
+# Codna GitHub Action
+
+**Run [Codna](https://codna.ai) in GitHub Actions — `fix`, `review` or `secure` a repository through the same packaged local runtime users run from the CLI.**
+
+[![ci](https://github.com/thyn-ai/codna-action/actions/workflows/ci.yml/badge.svg)](https://github.com/thyn-ai/codna-action/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/thyn-ai/codna-action/actions/workflows/codeql.yml/badge.svg)](https://github.com/thyn-ai/codna-action/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/thyn-ai/codna-action/badge)](https://scorecard.dev/viewer/?uri=github.com/thyn-ai/codna-action)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+
+[Codna docs](https://docs.codna.ai) · [Contributing](./CONTRIBUTING.md) · [Support](./SUPPORT.md) · [Security](./SECURITY.md)
+
+</div>
+
+---
 
 Public wrapper for Codna's GitHub Action channel. The action installs the published `codna`
 package from PyPI, then runs the same packaged local runtime users run from the CLI.
@@ -28,9 +43,13 @@ jobs:
           github-token: ${{ github.token }}
 ```
 
-Use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` in the job environment for
-model-backed local planning. `api-key` is optional for local packaged runs and can carry a Codna
-license / metering key when your deployment requires one.
+Model calls run through the provider named in `model` (`<provider>/<model-id>`) and read that
+provider's key from the job environment — for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY` or `OPENROUTER_API_KEY`; any provider in the bundled catalog works. When `model`
+is omitted (or carries no `<provider>/` prefix) the default provider is Anthropic, so
+`ANTHROPIC_API_KEY` must be set in that case. `api-key` is the Codna engine API key (exported as
+`CODNA_API_KEY`). It is only needed when the run is pointed at a remote Codna engine via
+`CODNA_ENGINE_URL`; the default packaged local runtime does not use it.
 
 ## Review mode
 
@@ -92,5 +111,40 @@ For deterministic CI, pin the package:
 
 ```yaml
 with:
-  package-spec: codna==0.1.43
+  package-spec: codna==0.2.53
 ```
+
+### Pin the action
+
+`@v1` is a floating tag that maintainers move to each vetted change of the wrapper (see
+[CONTRIBUTING.md](./CONTRIBUTING.md#releases-and-the-v1-tag)). For a reproducible workflow, pin
+the full commit SHA and let Dependabot move it:
+
+```yaml
+- uses: thyn-ai/codna-action@<full commit SHA> # v1
+```
+
+## Contributing
+
+Bug reports and pull requests for the wrapper are welcome — [CONTRIBUTING.md](./CONTRIBUTING.md)
+explains how to check and smoke-test the action locally, and [SUPPORT.md](./SUPPORT.md) says
+where each kind of question goes. Bugs in what Codna itself did (the fix PR, the review
+findings, a `secure` classification) are triaged at
+[thyn-ai/feedback](https://github.com/thyn-ai/feedback). Security issues: [SECURITY.md](./SECURITY.md),
+never a public issue.
+
+## Related repositories
+
+Open-source repositories from the Algenta team. The Algenta engine itself is proprietary; everything listed here is Apache-2.0. Issues and discussions are welcome in whichever repository owns the code.
+
+- [thyn-ai/algenta-sdk](https://github.com/thyn-ai/algenta-sdk) — Python & TypeScript SDKs for the Algenta decision engine: governed tool profiles, execution receipts, approvals.
+- [thyn-ai/algenta-integrations](https://github.com/thyn-ai/algenta-integrations) — Framework integrations for Algenta: LangChain, LlamaIndex, pydantic-ai, MAF, Haystack, LiteLLM, Ray Serve, vLLM, Vercel AI SDK and n8n.
+- [thyn-ai/mojo-kernels](https://github.com/thyn-ai/mojo-kernels) — Clean-room Mojo kernels as drop-in accelerators for popular Python/TypeScript libraries, with bit-exact parity and pure-language fallbacks.
+- [thyn-ai/security-toolchain](https://github.com/thyn-ai/security-toolchain) — The pinned, checksum-verified security toolchain (Gitleaks, Opengrep, OSV-Scanner, Trivy config, actionlint) that every thyn-ai repository runs locally and in CI.
+- [thyn-ai/feedback](https://github.com/thyn-ai/feedback) — Public issue intake for the Algenta family and the Codna GitHub App.
+- [thyn-ai/codna-action](https://github.com/thyn-ai/codna-action) (this repository) — Public GitHub Action wrapper for Codna.
+
+## License
+
+This action wrapper is licensed under [Apache-2.0](./LICENSE). The `codna` package it installs
+is a separate product with its own license terms; see [NOTICE](./NOTICE).

@@ -1,0 +1,42 @@
+name: Feature request
+description: >-
+  Propose a new input, output or mode for the wrapper. (A capability Codna
+  itself lacks goes to thyn-ai/feedback.)
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The wrapper exposes what the `codna` CLI already does. If the flag or
+        mode you want does not exist in the CLI yet, please request it at
+        https://github.com/thyn-ai/feedback/issues/new/choose (product `codna`)
+        so it lands in Codna first; it can then be surfaced here.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: What kind of request?
+      options:
+        - Expose an existing `codna` CLI flag as an input
+        - Expose an existing `codna` CLI mode or subcommand
+        - A new output
+        - Installation / runner support (e.g. a runner without pipx)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like?
+      description: >-
+        Describe the workflow you are trying to build, not just the input
+        shape you'd guess at. Name the `codna` flag or subcommand it maps
+        onto if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why isn't an existing input, or running `codna` in a `run:` step, sufficient?
+    validations:
+      required: false

@@ -1,0 +1,79 @@
+name: Bug report
+description: >-
+  The action wrapper misbehaves — the install step, an input, the output, or
+  how it invoked codna. (Bugs in what Codna itself did go to thyn-ai/feedback.)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        This template is for the **wrapper**: `action.yml`, its inputs and
+        outputs, the install step, the diff range or PR it picked, the command
+        it ran. If the run reached `codna` and the problem is in what Codna
+        did — the fix PR, the review findings, a `secure` classification, an
+        error from the CLI — please file it at
+        https://github.com/thyn-ai/feedback/issues/new/choose with the product
+        set to `codna`; that is where Codna bugs are triaged.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode?
+      options:
+        - fix
+        - review
+        - secure
+        - The install step (before any mode ran)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: action-ref
+    attributes:
+      label: Action ref
+      description: The ref on your `uses:` line — `v1`, a branch, or the full commit SHA.
+      placeholder: thyn-ai/codna-action@v1
+    validations:
+      required: true
+  - type: input
+    id: codna-version
+    attributes:
+      label: codna version
+      description: >-
+        The install step prints `codna --version` in the job log. Include the
+        `package-spec` you set, if any.
+      placeholder: e.g. codna 0.2.53 (package-spec codna==0.2.53)
+    validations:
+      required: true
+  - type: input
+    id: runner
+    attributes:
+      label: Runner
+      description: "`runs-on` label and, for a self-hosted runner, the OS and whether pipx is installed."
+      placeholder: e.g. ubuntu-latest
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow snippet
+      description: >-
+        The job that uses the action, including `permissions:`, `on:` and the
+        `with:` block. Remove secrets first — this issue is public.
+      render: yaml
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant job log
+      description: The step's output and the step summary. Remove anything secret first.
+      render: text
+    validations:
+      required: false
