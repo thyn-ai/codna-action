@@ -97,7 +97,12 @@ runs:
           pipx install --pip-args=--only-binary=codna --force "$package_spec"
         else
           python3 -m pip install --user --upgrade --only-binary=codna "$package_spec"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # pip --user puts the codna entry point in the user scripts directory
+          # (~/.local/bin on Linux runners). GITHUB_PATH reaches later steps
+          # only, so this step also puts it on its own PATH before verifying.
+          user_bin="$(python3 -m site --user-base)/bin"
+          echo "$user_bin" >> "$GITHUB_PATH"
+          export PATH="$user_bin:$PATH"
         fi
         codna --version
 

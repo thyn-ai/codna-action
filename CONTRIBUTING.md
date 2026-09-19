@@ -20,8 +20,8 @@ workflows, and the documentation.
 |---|---|
 | `action.yml` | The action: metadata, inputs and outputs, and two composite `bash` steps — **Install codna** (pipx or `pip --user`, wheels only) and **codna fix / review / secure** (maps the inputs onto a `codna` command line and captures the PR URL) |
 | `README.md` | The user-facing documentation: one section per mode, plus pinning guidance |
-| `scripts/check.sh` | The lint CI runs and you run locally: actionlint, YAML parse, pinned `uses:`, no `${{ }}` inside `run:`, action.yml structure, shellcheck on every step |
-| `scripts/smoke-install.sh` | Runs the action's own install step against PyPI and prints `codna --version` |
+| `scripts/check.sh` | The lint CI runs and you run locally: actionlint, YAML parse, pinned `uses:`, no `${{ }}` inside `run:`, action.yml structure, shellcheck on every step with only the step's `env:` names and the runner's own variables declared, plus a negative check that an undeclared variable still fails |
+| `scripts/smoke-install.sh` | Runs the action's own install step against PyPI on both of its branches — pipx, and `pip install --user` with pipx hidden from PATH — and requires each to end in a working `codna --version` |
 | `.github/workflows/ci.yml` | Runs the two scripts on every pull request and push to `main` |
 | `.github/workflows/` (rest) | CodeQL (`actions` language), OpenSSF Scorecard, the security gate, stale and first-interaction housekeeping |
 | `.github/requirements/` | Hash-locked Python tooling for the scripts (PyYAML) |
@@ -46,12 +46,16 @@ you can check before pushing — is that the action is well-formed and that its
 install step works against the real package index:
 
 ```bash
-scripts/check.sh            # actionlint, YAML parse, action.yml validation, shellcheck per step
-scripts/smoke-install.sh    # runs the "Install codna" step as written, then `codna --version`
+scripts/check.sh            # actionlint, YAML parse, action.yml validation, shellcheck per step, negative check
+scripts/smoke-install.sh    # runs the "Install codna" step as written, pipx branch and pip fallback
 ```
 
-`scripts/smoke-install.sh` installs `codna` on your machine exactly as the
-action would on a runner (pipx if you have it, otherwise `pip install --user`).
+`scripts/smoke-install.sh` installs `codna` exactly as the action does on a
+runner, twice: once through pipx, as on GitHub-hosted runners (skipped if you
+have no pipx; CI fails without it), and once through `pip install --user` on a
+PATH with pipx hidden and `PYTHONUSERBASE` pointed at a scratch directory. The
+second run passes only if the step puts the user scripts directory on its own
+PATH before `codna --version` and writes it to `GITHUB_PATH` for later steps.
 Set `CODNA_ACTION_PACKAGE_SPEC=codna==X.Y.Z` to pin, as the `package-spec`
 input does.
 
@@ -96,7 +100,10 @@ pre-commit install            # installs both the pre-commit and pre-push hooks
   so it lands in Codna first.
 - **Inputs travel through `env:`.** Every input and every `github.*` value a
   step needs is set in the step's `env:` block and read as a shell variable.
-  No `${{ }}` inside `run:` — `scripts/check.sh` fails on it.
+  No `${{ }}` inside `run:` — `scripts/check.sh` fails on it. Every variable a
+  step reads is either in its `env:` map or one GitHub sets on every runner:
+  `scripts/check.sh` runs shellcheck with `check-unassigned-uppercase` on and
+  fails on anything else, `$GITHUB_TOKEN` included.
 - **Install nothing but `codna`.** The install step stays `--only-binary`,
   installs the one distribution named by `package-spec`, and never fetches a
   script to execute. The action does not install Node, Bun or a second

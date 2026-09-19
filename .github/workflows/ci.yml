@@ -4,12 +4,16 @@
 #             container image, pinned by digest), then scripts/check.sh: every
 #             YAML file parses, action.yml is a composite action whose steps
 #             all run in bash with no `${{ }}` inside `run:`, every `uses:` is
-#             pinned to a full commit SHA, and shellcheck passes on each step.
+#             pinned to a full commit SHA, and shellcheck passes on each step
+#             with only its `env:` names and the runner's variables declared
+#             (plus a negative check that an undeclared variable still fails).
 #   smoke  -- scripts/smoke-install.sh: runs the action's own "Install codna"
-#             step exactly as written in action.yml against PyPI (pipx on the
-#             runner, as for real users) and prints `codna --version`. This is
-#             the one step of the action that can run without provider keys or
-#             a pull request, so it is the one CI exercises end to end.
+#             step exactly as written in action.yml against PyPI, on both of
+#             its branches: pipx (as on this runner, for real users) and the
+#             `pip install --user` fallback with pipx hidden from PATH. Each
+#             run must end in a working `codna --version`. This is the one
+#             step of the action that can run without provider keys or a pull
+#             request, so it is the one CI exercises end to end.
 #
 # The same two scripts are what a contributor runs locally (CONTRIBUTING.md).
 # Python tooling is installed with --require-hashes from

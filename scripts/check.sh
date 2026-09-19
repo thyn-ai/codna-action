@@ -9,7 +9,12 @@
 #   4. No `${{ }}` expression inside any `run:` block -- inputs and context
 #      reach a shell through `env:`, never by string interpolation.
 #   5. action.yml is a composite action whose every step runs in bash, has a
-#      name, and passes shellcheck (each step's script is checked on its own).
+#      name, and passes shellcheck. Each step's script is checked on its own
+#      with only the names from its `env:` map and the variables GitHub sets
+#      on every runner declared, and check-unassigned-uppercase on: a variable
+#      the step reads without declaring fails SC2154, no suppressions anywhere.
+#   6. A negative check: a step that reads three undeclared variables is
+#      rejected by exactly that shellcheck run, so the check has teeth.
 #
 # Requirements: bash, python3 with PyYAML, shellcheck, and actionlint on PATH.
 # CI runs actionlint from its container image in the step before this script,
@@ -96,56 +101,147 @@ PY
 echo "==> action.yml: composite, bash steps, no expressions inside run:, shellcheck per step"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-python3 - "$tmp" <<'PY'
+
+# extract_steps <action.yml> <dir>
+# Validates the composite action and writes one bash script per step into
+# <dir> for shellcheck. Each script opens with an `export NAME=` line for every
+# name in the step's `env:` map and for every variable GitHub sets on a runner
+# (RUNNER_VARIABLES below), then carries the step's `run:` block verbatim.
+# The shellcheck_steps function below then runs with check-unassigned-uppercase
+# on, so a step that reads a variable its `env:` does not provide -- a misspelt
+# input variable, a misspelt GITHUB_* -- fails SC2154 exactly as an unassigned
+# lowercase local does. No directive or disable is written into the scripts.
+extract_steps() {
+  python3 - "$1" "$2" <<'PY'
 import re
 import sys
 
 import yaml
 
-out = sys.argv[1]
-with open("action.yml", encoding="utf-8") as fh:
+src, out = sys.argv[1:]
+
+# Variables GitHub sets for every step of every job, from
+# https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+# and the workflow-command files (GITHUB_STATE). GITHUB_TOKEN is deliberately
+# absent: it is a secret, and a step that needs it declares it in `env:`.
+RUNNER_VARIABLES = """
+CI GITHUB_ACTION GITHUB_ACTIONS GITHUB_ACTION_PATH GITHUB_ACTION_REPOSITORY
+GITHUB_ACTOR GITHUB_ACTOR_ID GITHUB_API_URL GITHUB_ARTIFACTS GITHUB_ARTIFACTS_LIST
+GITHUB_BASE_REF GITHUB_ENV GITHUB_EVENT_NAME GITHUB_EVENT_PATH GITHUB_GRAPHQL_URL
+GITHUB_HEAD_REF GITHUB_JOB GITHUB_OUTPUT GITHUB_PATH GITHUB_REF GITHUB_REF_NAME
+GITHUB_REF_PROTECTED GITHUB_REF_TYPE GITHUB_REPOSITORY GITHUB_REPOSITORY_ID
+GITHUB_REPOSITORY_OWNER GITHUB_REPOSITORY_OWNER_ID GITHUB_RETENTION_DAYS
+GITHUB_RUN_ATTEMPT GITHUB_RUN_ID GITHUB_RUN_NUMBER GITHUB_SERVER_URL GITHUB_SHA
+GITHUB_STATE GITHUB_STEP_SUMMARY GITHUB_TRIGGERING_ACTOR GITHUB_WORKFLOW
+GITHUB_WORKFLOW_REF GITHUB_WORKFLOW_SHA GITHUB_WORKSPACE
+RUNNER_ARCH RUNNER_DEBUG RUNNER_ENVIRONMENT RUNNER_NAME RUNNER_OS RUNNER_TEMP
+RUNNER_TOOL_CACHE
+""".split()
+IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+with open(src, encoding="utf-8") as fh:
     action = yaml.safe_load(fh)
 
 problems = []
 for key in ("name", "description", "inputs", "runs"):
     if key not in action:
-        problems.append(f"action.yml: missing top-level `{key}`")
+        problems.append(f"{src}: missing top-level `{key}`")
 runs = action.get("runs", {})
 if runs.get("using") != "composite":
-    problems.append(f"action.yml: runs.using is {runs.get('using')!r}, expected 'composite'")
+    problems.append(f"{src}: runs.using is {runs.get('using')!r}, expected 'composite'")
 steps = runs.get("steps") or []
 if not steps:
-    problems.append("action.yml: runs.steps is empty")
+    problems.append(f"{src}: runs.steps is empty")
 for i, step in enumerate(steps):
     label = step.get("name") or step.get("id") or f"step {i}"
     if not step.get("name"):
-        problems.append(f"action.yml: step {i} has no name")
+        problems.append(f"{src}: step {i} has no name")
     if "run" not in step:
-        problems.append(f"action.yml: {label}: composite steps here must be `run:` steps")
+        problems.append(f"{src}: {label}: composite steps here must be `run:` steps")
         continue
     if step.get("shell") != "bash":
-        problems.append(f"action.yml: {label}: shell is {step.get('shell')!r}, expected 'bash'")
+        problems.append(f"{src}: {label}: shell is {step.get('shell')!r}, expected 'bash'")
     if "${{" in step["run"]:
-        problems.append(f"action.yml: {label}: `${{{{ }}}}` inside run: -- pass it through env: instead")
+        problems.append(f"{src}: {label}: `${{{{ }}}}` inside run: -- pass it through env: instead")
+    env_names = sorted(step.get("env") or {})
+    for name in env_names:
+        if not IDENTIFIER.fullmatch(name):
+            problems.append(f"{src}: {label}: env: name {name!r} is not a shell identifier")
+    declared = list(dict.fromkeys(env_names + RUNNER_VARIABLES))
     slug = re.sub(r"[^A-Za-z0-9]+", "-", label).strip("-").lower()
     with open(f"{out}/step-{i}-{slug}.sh", "w", encoding="utf-8") as fh:
         fh.write("#!/usr/bin/env bash\n")
+        fh.write(f"# {src}, step {label!r}: {len(env_names)} env: names and "
+                 f"{len(RUNNER_VARIABLES)} runner variables declared for shellcheck;\n")
+        fh.write(f"# the step's run: block starts at line {len(declared) + 4}.\n")
+        for name in declared:
+            fh.write(f"export {name}=\n")
         fh.write(step["run"])
 for name, spec in (action.get("inputs") or {}).items():
     if not spec.get("description"):
-        problems.append(f"action.yml: input `{name}` has no description")
+        problems.append(f"{src}: input `{name}` has no description")
 for name, spec in (action.get("outputs") or {}).items():
     if not spec.get("description"):
-        problems.append(f"action.yml: output `{name}` has no description")
+        problems.append(f"{src}: output `{name}` has no description")
 
 if problems:
     print("\n".join(problems), file=sys.stderr)
     sys.exit(1)
-print(f"  action.yml: {action['name']!r}, composite, {len(steps)} bash steps, "
+print(f"  {src}: {action['name']!r}, composite, {len(steps)} bash steps, "
       f"{len(action.get('inputs') or {})} inputs, {len(action.get('outputs') or {})} outputs")
 PY
-step_scripts=("$tmp"/*.sh)
-shellcheck -s bash "${step_scripts[@]}"
-echo "  shellcheck: clean on ${#step_scripts[@]} step scripts ($(shellcheck --version | sed -n 's/^version: //p'))"
+}
+
+# Usage: shellcheck_steps <dir> [shellcheck options]
+shellcheck_steps() {
+  local dir="$1"
+  shift
+  local scripts=("$dir"/*.sh)
+  shellcheck -s bash -o check-unassigned-uppercase "$@" "${scripts[@]}"
+}
+
+mkdir "$tmp/steps"
+extract_steps action.yml "$tmp/steps"
+shellcheck_steps "$tmp/steps"
+step_scripts=("$tmp/steps"/*.sh)
+echo "  shellcheck: clean on ${#step_scripts[@]} step scripts ($(shellcheck --version | sed -n 's/^version: //p')), check-unassigned-uppercase on:" \
+     "every variable a step reads is in its env: or set by the runner"
+
+echo "==> negative check: a step that reads a variable its env: does not provide must fail shellcheck"
+mkdir -p "$tmp/negative/steps"
+cat > "$tmp/negative/action.yml" <<'YAML'
+name: negative
+description: One step reading three undeclared variables; extract_steps + shellcheck_steps must reject it.
+inputs: {}
+runs:
+  using: composite
+  steps:
+    - name: reads undeclared variables
+      shell: bash
+      env:
+        CODNA_ACTION_DECLARED: declared
+      run: |
+        set -euo pipefail
+        echo "$CODNA_ACTION_DECLARED" "$GITHUB_OUTPUT" "$HOME"
+        echo "$CODNA_ACTION_NOT_IN_ENV" "$GITHUB_OUTPTU" "$never_assigned"
+YAML
+extract_steps "$tmp/negative/action.yml" "$tmp/negative/steps" >/dev/null
+if negative_out="$(shellcheck_steps "$tmp/negative/steps" -f gcc 2>&1)"; then
+  { echo "negative check: shellcheck accepted a step that reads undeclared variables:"; echo "$negative_out"; } >&2
+  exit 1
+fi
+for name in CODNA_ACTION_NOT_IN_ENV GITHUB_OUTPTU never_assigned; do
+  if ! grep -Eq "warning: $name is referenced but not assigned" <<<"$negative_out"; then
+    { echo "negative check: expected SC2154 for $name; shellcheck said:"; echo "$negative_out"; } >&2
+    exit 1
+  fi
+done
+for name in CODNA_ACTION_DECLARED GITHUB_OUTPUT HOME; do
+  if grep -Eq "warning: $name is referenced" <<<"$negative_out"; then
+    { echo "negative check: $name is declared and must not be reported; shellcheck said:"; echo "$negative_out"; } >&2
+    exit 1
+  fi
+done
+echo "  negative check: SC2154 for CODNA_ACTION_NOT_IN_ENV, GITHUB_OUTPTU and never_assigned; nothing for the declared names"
 
 echo "OK"
