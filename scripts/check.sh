@@ -208,6 +208,11 @@ echo "  shellcheck: clean on ${#step_scripts[@]} step scripts ($(shellcheck --ve
      "every variable a step reads is in its env: or set by the runner"
 
 echo "==> negative check: a step that reads a variable its env: does not provide must fail shellcheck"
+# The step below reads three names that must be reported -- an uppercase name
+# missing from its env:, a misspelt runner variable, an unassigned lowercase
+# local -- and three that must not: one declared in its env:, one runner
+# variable from RUNNER_VARIABLES, and HOME, which shellcheck knows as a shell
+# variable (like PATH, PWD or IFS) and never reports, declared or not.
 mkdir -p "$tmp/negative/steps"
 cat > "$tmp/negative/action.yml" <<'YAML'
 name: negative
@@ -238,10 +243,10 @@ for name in CODNA_ACTION_NOT_IN_ENV GITHUB_OUTPTU never_assigned; do
 done
 for name in CODNA_ACTION_DECLARED GITHUB_OUTPUT HOME; do
   if grep -Eq "warning: $name is referenced" <<<"$negative_out"; then
-    { echo "negative check: $name is declared and must not be reported; shellcheck said:"; echo "$negative_out"; } >&2
+    { echo "negative check: $name must not be reported (env: name, runner variable, or a shell variable shellcheck knows); shellcheck said:"; echo "$negative_out"; } >&2
     exit 1
   fi
 done
-echo "  negative check: SC2154 for CODNA_ACTION_NOT_IN_ENV, GITHUB_OUTPTU and never_assigned; nothing for the declared names"
+echo "  negative check: SC2154 for CODNA_ACTION_NOT_IN_ENV, GITHUB_OUTPTU and never_assigned; nothing for CODNA_ACTION_DECLARED (env:), GITHUB_OUTPUT (runner) or HOME (known to shellcheck)"
 
 echo "OK"
