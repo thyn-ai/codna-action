@@ -1,0 +1,13 @@
+Codna GitHub Action
+Copyright 2026 Algenta and the codna-action contributors
+
+This product is licensed under the Apache License, Version 2.0. See LICENSE
+for the full license text.
+
+This repository contains only the composite GitHub Action (action.yml) that
+installs the published `codna` package from PyPI and runs it, together with
+the repository's documentation and automation. The `codna` package itself --
+the Codna CLI, its packaged local runtime and the agent-core sidecar it ships
+-- is separately distributed and is not included here; it is subject to its
+own license terms, not to this repository's LICENSE. The Algenta Engine is
+likewise separately distributed and proprietary.

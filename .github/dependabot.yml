@@ -1,0 +1,52 @@
+# Dependabot configuration.
+#
+# What Dependabot can and cannot see in this repository:
+#   * .github/workflows/*.yml -- the SHA-pinned actions: the `github-actions` entry below is the
+#     whole configuration. (The actionlint container image in ci.yml is referenced as
+#     `docker://...@sha256:` and is bumped by hand together with its tag.)
+#   * action.yml -- a composite action with no package manifest. The `codna` package it installs
+#     is chosen by the caller at run time through the `package-spec` input (latest by default),
+#     so there is nothing here for Dependabot to pin; callers pin `codna==X.Y.Z` in their own
+#     workflow when they want a deterministic version.
+#   * .github/requirements/check.txt -- the hash-locked PyYAML used by scripts/check.sh: the `pip`
+#     entry below.
+#
+# Every entry carries `cooldown: default-days: 7`: a version bump is proposed only once the
+# release is a week old, so a compromised or hastily-yanked upload is caught upstream before it
+# reaches a PR here (Dependabot's own default is 3 days). Security updates are never delayed by
+# cooldown.
+version: 2
+updates:
+  # GitHub Actions: weekly, grouped into one PR -- the same action is pinned by SHA at several call
+  # sites, and one grouped bump is reviewable where a handful of single-action PRs would not be.
+  # thyn-ai/security-toolchain is excluded: its own propagate.py is the one bumper for that pin
+  # (it moves the CI pin and the pre-commit `rev` together and carries required caller
+  # `permissions:` forward when a release adds one; a routine digest bump would not). Dependabot
+  # names a reusable-workflow dependency by its full path, hence the wildcard.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "thyn-ai/security-toolchain*"
+    commit-message:
+      prefix: chore(ci)
+
+  - package-ecosystem: pip
+    directory: /.github/requirements
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      check-tools:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: chore(ci)

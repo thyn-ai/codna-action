@@ -1,0 +1,69 @@
+# CodeQL (advanced setup) -- per pull request, on push to main, and weekly.
+#
+# Language: `actions` only. This repository is a composite GitHub Action
+# (action.yml, `runs.using: composite`, bash steps) plus the workflow files
+# under .github/workflows/ -- and CodeQL's `actions` extractor analyses both:
+# composite action metadata as well as workflows. There is no JavaScript,
+# Python or Dockerfile here for the other CodeQL languages to look at; the
+# `codna` package the action installs at run time is a separate product with
+# its own source repository. If a JavaScript or Docker action is ever added,
+# extend the matrix to the matching language; the README badge reads the
+# workflow's status, not the language list, so it keeps working.
+#
+# Prerequisite: GitHub's CodeQL *default setup* must be switched off for this
+# repository (it is: `code-scanning/default-setup` reports `not-configured`).
+# While it is on, GitHub rejects every SARIF upload from an advanced
+# configuration ("CodeQL analyses from advanced configurations cannot be
+# processed when the default setup is enabled").
+name: CodeQL
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref. Only pull-request runs are cancelled by a newer push to the
+# same PR; runs on main (push, weekly schedule, dispatch) always complete, so a
+# push that lands during the scheduled scan can never leave main without a
+# fresh SARIF upload.
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          category: /language:${{ matrix.language }}
