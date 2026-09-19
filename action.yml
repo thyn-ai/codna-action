@@ -6,11 +6,11 @@ branding:
 
 inputs:
   api-key:
-    description: "Optional Codna license / metering key. Local packaged runs can leave this empty when provider keys are supplied by environment."
+    description: "Codna engine API key (exported as CODNA_API_KEY). Only needed when the run is pointed at a remote Codna engine via CODNA_ENGINE_URL; the default packaged local runtime does not use it."
     required: false
     default: ""
   package-spec:
-    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.1.43."
+    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.2.53."
     required: false
     default: "codna"
   mode:
@@ -66,7 +66,7 @@ inputs:
     required: false
     default: ""
   model:
-    description: "Planner/review model. Use provider-qualified IDs for deterministic routing, e.g. openai/gpt-5."
+    description: "Planner/review model. Use provider-qualified IDs for deterministic routing, e.g. openai/gpt-5; the provider's key is read from the job environment. Without a provider prefix the default provider is Anthropic, so ANTHROPIC_API_KEY must be set in that case."
     required: false
     default: "repository.verified_agentic_v1"
   github-token:
@@ -97,7 +97,12 @@ runs:
           pipx install --pip-args=--only-binary=codna --force "$package_spec"
         else
           python3 -m pip install --user --upgrade --only-binary=codna "$package_spec"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # pip --user puts the codna entry point in the user scripts directory
+          # (~/.local/bin on Linux runners). GITHUB_PATH reaches later steps
+          # only, so this step also puts it on its own PATH before verifying.
+          user_bin="$(python3 -m site --user-base)/bin"
+          echo "$user_bin" >> "$GITHUB_PATH"
+          export PATH="$user_bin:$PATH"
         fi
         codna --version
 

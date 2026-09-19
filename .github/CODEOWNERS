@@ -1,0 +1,27 @@
+# See https://docs.github.com/articles/about-codeowners for syntax.
+# Order matters — later matches take precedence, so the most specific rules
+# are listed after the tree-wide rule.
+#
+# NOTE: mirrors the same note in thyn-ai/algenta-sdk's CODEOWNERS. The
+# thyn-ai org has exactly one member today (@0xamlab) and no teams. Every
+# entry below is that one real account, not a placeholder — replace with a
+# real team (@thyn-ai/codna-action-maintainers) as soon as a second
+# maintainer joins. Until then, do NOT turn on the ruleset's "Require review
+# from Code Owners" — GitHub blocks a PR author from approving their own PR,
+# so a solo-owner CODEOWNERS with that setting on would make every PR
+# unmergeable by the only person who can open one.
+
+# Everything in this repository.
+* @0xamlab
+
+# action.yml is the product: its inputs, the mapping onto the codna command
+# line, the install step and the token handling. A PR touching it gets
+# flagged for deliberate review rather than being mergeable as an incidental
+# part of a documentation change.
+/action.yml @0xamlab
+
+# The scripts are what CI executes on every pull request.
+/scripts/ @0xamlab
+
+# Workflow files are as security-sensitive as the code they run.
+/.github/workflows/ @0xamlab

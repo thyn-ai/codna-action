@@ -1,0 +1,6 @@
+# Tooling for scripts/check.sh and scripts/smoke-install.sh (the `check` and
+# `smoke` jobs in .github/workflows/ci.yml): the YAML parser that loads
+# action.yml and every workflow file. Hash-locked into check.txt; regenerate with
+#   uv pip compile --universal --generate-hashes --python-version 3.12 \
+#     .github/requirements/check.in -o .github/requirements/check.txt
+pyyaml
