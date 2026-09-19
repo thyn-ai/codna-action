@@ -1,0 +1,23 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage questions, ideas, show-and-tell
+    url: https://github.com/thyn-ai/codna-action/discussions
+    about: >-
+      GitHub Discussions is the place for open-ended questions about using
+      the action — issues are for bugs in the wrapper and concrete requests.
+  - name: A bug or feature request in Codna itself
+    url: https://github.com/thyn-ai/feedback/issues/new/choose
+    about: >-
+      The fix PR, the review findings, a secure classification, the CLI, the
+      GitHub App or the MCP server: Codna's public issue intake is
+      thyn-ai/feedback (product `codna`). This repository only holds the
+      Action wrapper.
+  - name: Report a security vulnerability
+    url: https://github.com/thyn-ai/codna-action/blob/main/SECURITY.md
+    about: >-
+      Never report a vulnerability in a public issue. SECURITY.md explains
+      how to report privately through GitHub Security Advisories — for the
+      wrapper and for Codna itself.
+  - name: Community chat
+    url: https://discord.gg/w8NDsph9an
+    about: General questions and discussion with other users.

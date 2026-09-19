@@ -1,0 +1,88 @@
+# CI for the composite action. Two read-only jobs:
+#
+#   check  -- actionlint over the workflow files (from actionlint's own
+#             container image, pinned by digest), then scripts/check.sh: every
+#             YAML file parses, action.yml is a composite action whose steps
+#             all run in bash with no `${{ }}` inside `run:`, every `uses:` is
+#             pinned to a full commit SHA, and shellcheck passes on each step
+#             with only its `env:` names and the runner's variables declared
+#             (plus a negative check that an undeclared variable still fails).
+#   smoke  -- scripts/smoke-install.sh: runs the action's own "Install codna"
+#             step exactly as written in action.yml against PyPI, on both of
+#             its branches: pipx (as on this runner, for real users) and the
+#             `pip install --user` fallback with pipx hidden from PATH. Each
+#             run must end in a working `codna --version`. This is the one
+#             step of the action that can run without provider keys or a pull
+#             request, so it is the one CI exercises end to end.
+#
+# The same two scripts are what a contributor runs locally (CONTRIBUTING.md).
+# Python tooling is installed with --require-hashes from
+# .github/requirements/check.txt. The workflow needs no secrets and runs safely
+# on forked-repository pull requests.
+name: ci
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref; a newer push to a pull request cancels the run it supersedes.
+# Pushes to main always run to completion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: actionlint + action.yml checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # actionlint's official image, pinned by digest (Dependabot does not
+      # manage container references in `uses:`; bump the tag and digest
+      # together, keeping the version in step with CONTRIBUTING.md).
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install check tooling (hash-locked)
+        run: python3 -m pip install --require-hashes -r .github/requirements/check.txt
+
+      - name: Parse every YAML file, validate action.yml, shellcheck its steps
+        run: scripts/check.sh
+
+  smoke:
+    name: install step against PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install check tooling (hash-locked)
+        run: python3 -m pip install --require-hashes -r .github/requirements/check.txt
+
+      - name: Run the action's "Install codna" step as written in action.yml
+        run: scripts/smoke-install.sh

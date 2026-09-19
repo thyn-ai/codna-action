@@ -1,0 +1,19 @@
+name: Question
+description: Ask a usage question about the Codna GitHub Action.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        For faster answers, consider
+        https://github.com/thyn-ai/codna-action/discussions or
+        https://discord.gg/w8NDsph9an instead — this template is here for
+        questions worth keeping searchable. Questions about Codna itself (the
+        CLI, the GitHub App, the MCP server) are welcome at
+        https://github.com/thyn-ai/feedback.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
