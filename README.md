@@ -43,9 +43,13 @@ jobs:
           github-token: ${{ github.token }}
 ```
 
-Use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` in the job environment for
-model-backed local planning. `api-key` is optional for local packaged runs and can carry a Codna
-license / metering key when your deployment requires one.
+Model calls run through the provider named in `model` (`<provider>/<model-id>`) and read that
+provider's key from the job environment — for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY` or `OPENROUTER_API_KEY`; any provider in the bundled catalog works. When `model`
+is omitted (or carries no `<provider>/` prefix) the default provider is Anthropic, so
+`ANTHROPIC_API_KEY` must be set in that case. `api-key` is the Codna engine API key (exported as
+`CODNA_API_KEY`). It is only needed when the run is pointed at a remote Codna engine via
+`CODNA_ENGINE_URL`; the default packaged local runtime does not use it.
 
 ## Review mode
 
@@ -107,7 +111,7 @@ For deterministic CI, pin the package:
 
 ```yaml
 with:
-  package-spec: codna==0.1.43
+  package-spec: codna==0.2.53
 ```
 
 ### Pin the action
