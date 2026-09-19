@@ -114,6 +114,14 @@ with:
   package-spec: codna==0.2.53
 ```
 
+Either way the step installs `codna` as a wheel only (`--only-binary=codna`): pip will not build
+the package from a source distribution, so the runtime that executes is the one published to PyPI.
+The step does not install with `--require-hashes`. A hash lock names every distribution in the
+resolved set — `codna` and each of its dependencies, at one version — so a lock shipped inside this
+action would either fix the `codna` version, breaking the default that follows the latest release, or
+fall out of date with every `codna` release. Reproducibility is the caller's choice, made with two
+pins: `package-spec: codna==X.Y.Z` fixes the package, and the commit SHA below fixes the wrapper.
+
 ### Pin the action
 
 `@v1` is a floating tag that maintainers move to each vetted change of the wrapper (see
