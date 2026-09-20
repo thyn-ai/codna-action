@@ -71,7 +71,7 @@ SHA) and the `codna` version you tested (the install step prints
 **Vulnerabilities in Codna itself belong with Codna.** This repository holds
 none of its code. The `codna` package (the CLI, its packaged local runtime,
 the agent-core sidecar), the Codna GitHub App and MCP server, and the Algenta
-Engine are proprietary and their source is not public, so please report them
+engine are proprietary and their source is not public, so please report them
 privately through the same channels as above — this repository's **Security
 → Report a vulnerability** tab or `security@algenta.ai` — rather than in a
 public issue anywhere. A vulnerability in one of the other open-source
