@@ -3,7 +3,7 @@
 Thank you for your interest in contributing. This repository is the public
 GitHub Action wrapper for [Codna](https://codna.ai): a composite action
 (`action.yml`) that installs the published `codna` package from PyPI and runs
-the same packaged local runtime users run from the CLI — in `fix`, `review`
+the same `codna` command users run from the CLI — in `fix`, `review`
 or `secure` mode — inside a GitHub Actions job.
 
 The wrapper is Apache-2.0 and meant to be read, forked and improved by

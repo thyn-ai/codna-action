@@ -2,7 +2,7 @@
 
 This repository contains the public GitHub Action wrapper for Codna: a
 composite action (`action.yml`) that installs the published `codna` package
-from PyPI and runs the same packaged local runtime users run from the CLI --
+from PyPI and runs the same `codna` command users run from the CLI --
 in `fix`, `review` or `secure` mode -- inside a GitHub Actions job. We take
 the security of this wrapper seriously and appreciate responsible disclosure
 from the community.
@@ -69,8 +69,8 @@ SHA) and the `codna` version you tested (the install step prints
 - The scripts under `scripts/`, which CI and contributors run
 
 **Vulnerabilities in Codna itself belong with Codna.** This repository holds
-none of its code. The `codna` package (the CLI, its packaged local runtime,
-the agent-core sidecar), the Codna GitHub App and MCP server, and the Algenta
+none of its code. The `codna` package (the CLI and the agent
+runtime it ships), the Codna GitHub App and MCP server, and the Algenta
 engine are proprietary and their source is not public, so please report them
 privately through the same channels as above — this repository's **Security
 → Report a vulnerability** tab or `security@algenta.ai` — rather than in a

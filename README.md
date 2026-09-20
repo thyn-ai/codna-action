@@ -2,7 +2,7 @@
 
 # Codna GitHub Action
 
-**Run [Codna](https://codna.ai) in GitHub Actions — `fix`, `review` or `secure` a repository through the same packaged local runtime users run from the CLI.**
+**Run [Codna](https://codna.ai) in GitHub Actions. `fix`, `review` or `secure` a repository with the same `codna` command you run on your machine.**
 
 [![ci](https://github.com/thyn-ai/codna-action/actions/workflows/ci.yml/badge.svg)](https://github.com/thyn-ai/codna-action/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/thyn-ai/codna-action/actions/workflows/codeql.yml/badge.svg)](https://github.com/thyn-ai/codna-action/actions/workflows/codeql.yml)
@@ -15,16 +15,13 @@
 
 ---
 
-Codna maps your repo deterministically, then sends an agent in with the exact context it
-needs to fix bugs fast. Every fix is verified by your own tests before it lands. Your key.
-Your infra. Your code stays yours.
+Codna maps your repository before it spends a token, then sends an agent in with the exact
+context it needs. A fix arrives as a pull request with the root cause, the changed symbols and a
+confidence score. You review. You merge. Your key. Your infra. Your code stays yours.
 
-Public wrapper for Codna's GitHub Action channel. The action installs the published `codna`
-package from PyPI, then runs the same packaged local runtime users run from the CLI.
-
-Users install one product: `codna`. The repository-intelligence SDK/core, Telys runtime/license,
-and self-contained agent-core sidecar ship inside the package. The action does not install Node,
-Bun, `node_modules`, or a separate Telys package.
+This is the public wrapper for Codna's GitHub Action channel. The action installs the published
+`codna` package from PyPI and runs it. One install: the agent runtime ships inside the package,
+so the action adds no Node, Bun or second runtime to your job.
 
 ## Fix mode
 
@@ -53,7 +50,7 @@ provider's key from the job environment — for example `OPENAI_API_KEY`, `ANTHR
 is omitted (or carries no `<provider>/` prefix) the default provider is Anthropic, so
 `ANTHROPIC_API_KEY` must be set in that case. `api-key` is the Codna engine API key (exported as
 `CODNA_API_KEY`). It is only needed when the run is pointed at a remote Codna engine via
-`CODNA_ENGINE_URL`; the default packaged local runtime does not use it.
+`CODNA_ENGINE_URL`; the default local run does not use it.
 
 ## Review mode
 
@@ -86,6 +83,23 @@ On `pull_request` events the action fetches the PR base branch and reviews
 `origin/<base>...HEAD`. For non-PR events, set `diff` explicitly, for example
 `diff: origin/main...HEAD`.
 
+What a review posts:
+
+- One inline comment per finding: severity (`high`, `medium`, `low`), category (`correctness`,
+  `security`, `performance`), an explanation and a `suggestion` block when the fix is a plain
+  replacement. Findings at confidence 0.75 or higher, ten at most; `min-confidence` and `effort`
+  adjust this.
+- One check run named `codna review`: `success` with no findings, `neutral` with findings, and
+  `failure` only with `blocking: "true"` and a finding at a blocking severity.
+- A verdict. Approve when the pass has no medium or high finding and no earlier Codna medium or high
+  thread is unresolved; otherwise Comment, with the reason. Never Request changes. Set
+  `review.approve: false` in the repository's `codna.yaml` to turn approvals off.
+- A red-head note when a required check is failing at review time: the verdict is about the diff,
+  not a merge go-ahead.
+- Dependency claims checked against npm and PyPI before posting. A contradicted claim is dropped;
+  an uncheckable one is posted as low and marked Unverified.
+- Re-reviews cover the commits pushed since Codna's last review.
+
 ## Secure mode
 
 ```yaml
@@ -99,8 +113,25 @@ steps:
       verification: codna-security.yaml
 ```
 
-Secure mode is read-only in this wrapper. Opening security PRs should use Codna's
-privilege-separated evidence/writer workflow.
+Secure mode is read-only in this wrapper: it classifies each SARIF 2.1.0 finding as reachable or
+not and opens no pull request. Opening security PRs uses Codna's privilege-separated evidence and
+writer workflow ([Security Autofix](https://docs.codna.ai/guides/security-autofix)).
+
+## What fix mode opens
+
+`mode: fix` runs `codna fix <repo> --ref <sha> --open-pr`. When Codna finds a fix it pushes a
+`codna/…` branch and opens a pull request titled `codna: fix …` whose body states the issue, the
+root cause, the changed symbols and Codna's confidence, and ends with `Review before merging.` The
+step exposes the URL as `pull-request-url`. Codna opens pull requests. It never merges.
+
+## Limits
+
+- The runner needs Python 3.10 or newer and a platform with a published wheel: Linux x86_64 or
+  macOS on Apple silicon. The install is wheel-only, so other platforms fail at the install step.
+- `mode: fix` opens the pull request once. It does not re-run your tests after the patch; your CI
+  and your reviewers verify the PR. The test-and-re-fix loop is the CLI's `codna fix --tests --apply`.
+- `mode: review` needs the PR base in the checkout (`fetch-depth: 0`) or an explicit `diff`.
+- `mode: secure` is read-only and always leaves `pull-request-url` empty.
 
 ## Pinning
 
@@ -115,7 +146,7 @@ For deterministic CI, pin the package:
 
 ```yaml
 with:
-  package-spec: codna==0.2.53
+  package-spec: codna==0.2.76
 ```
 
 Either way the step installs `codna` as a wheel only (`--only-binary=codna`): pip will not build
@@ -149,12 +180,12 @@ never a public issue.
 
 Open-source tooling around Algenta, from the Algenta team. The Algenta engine itself is proprietary; everything listed here is Apache-2.0. Issues and discussions are welcome in whichever repository owns the code.
 
-- [thyn-ai/algenta-sdk](https://github.com/thyn-ai/algenta-sdk) — Python and TypeScript SDKs for Algenta: governed data queries, simulations, decision memory with execution receipts, agent runs with approvals.
+- [thyn-ai/algenta-sdk](https://github.com/thyn-ai/algenta-sdk) — Python and TypeScript SDKs for Algenta: self-hosted building blocks for AI applications, 6,000+ deterministic functions on custom Mojo kernels behind one API, SDK and MCP surface.
 - [thyn-ai/algenta-integrations](https://github.com/thyn-ai/algenta-integrations) — Framework integrations for Algenta: LangChain, LlamaIndex, pydantic-ai, MAF, Haystack, LiteLLM, Ray Serve, vLLM, Vercel AI SDK and n8n.
 - [thyn-ai/mojo-kernels](https://github.com/thyn-ai/mojo-kernels) — Clean-room Mojo kernels as drop-in accelerators for popular Python/TypeScript libraries, with bit-exact parity and pure-language fallbacks.
 - [thyn-ai/security-toolchain](https://github.com/thyn-ai/security-toolchain) — The pinned, checksum-verified security toolchain (Gitleaks, Opengrep, OSV-Scanner, Trivy config, actionlint) that every thyn-ai repository runs locally and in CI.
 - [thyn-ai/feedback](https://github.com/thyn-ai/feedback) — Public issue intake for the open-source tooling around Algenta and for the Codna GitHub App.
-- [thyn-ai/codna-action](https://github.com/thyn-ai/codna-action) (this repository) — GitHub Action for Codna: fix, review or secure a repository in CI through the same packaged local runtime the CLI uses.
+- [thyn-ai/codna-action](https://github.com/thyn-ai/codna-action) (this repository) — GitHub Action for Codna: fix, review or secure a repository in CI with the same `codna` command you run on your machine.
 
 ## License
 

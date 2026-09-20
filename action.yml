@@ -1,16 +1,16 @@
 name: "codna"
-description: "Install codna from PyPI, then fix, review, or classify a repository through the same packaged local runtime users run locally."
+description: "Codna in CI. Fix a bug and open a pull request, review a pull request, or prove which scanner findings are reachable, with the same codna command you run on your machine."
 branding:
   icon: "git-pull-request"
   color: "purple"
 
 inputs:
   api-key:
-    description: "Codna engine API key (exported as CODNA_API_KEY). Only needed when the run is pointed at a remote Codna engine via CODNA_ENGINE_URL; the default packaged local runtime does not use it."
+    description: "Codna engine API key (exported as CODNA_API_KEY). Only needed when the run is pointed at a remote Codna engine via CODNA_ENGINE_URL; the default local run does not use it."
     required: false
     default: ""
   package-spec:
-    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.2.53."
+    description: "PyPI package spec to install. Default installs the latest published codna package; pin for deterministic CI, e.g. codna==0.2.76."
     required: false
     default: "codna"
   mode:
@@ -34,7 +34,7 @@ inputs:
     required: false
     default: ""
   blocking:
-    description: "Review mode: 'true' makes the Codna Review check fail on a blocking-severity finding."
+    description: "Review mode: 'true' makes the codna review check fail on a blocking-severity finding."
     required: false
     default: "false"
   effort:
@@ -70,7 +70,7 @@ inputs:
     required: false
     default: "repository.verified_agentic_v1"
   github-token:
-    description: "Token with contents:write and pull-requests:write. Defaults to the workflow token."
+    description: "GitHub token. Fix mode needs contents:write and pull-requests:write; review mode needs contents:read, pull-requests:write and checks:write; secure mode needs contents:read. Defaults to the workflow token."
     required: false
     default: ${{ github.token }}
 
