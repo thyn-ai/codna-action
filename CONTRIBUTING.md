@@ -8,7 +8,7 @@ or `secure` mode — inside a GitHub Actions job.
 
 The wrapper is Apache-2.0 and meant to be read, forked and improved by
 anyone. Codna itself — the `codna` package, the CLI, the GitHub App and the
-MCP server — and the Algenta Engine are proprietary and live in private
+MCP server — and the Algenta engine are proprietary and live in private
 repositories; nothing in this repository contains or changes them. What you
 can change here is how a GitHub Actions job installs and invokes `codna`:
 the inputs, the argument mapping, the install step, the output, the

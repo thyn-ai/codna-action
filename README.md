@@ -15,6 +15,10 @@
 
 ---
 
+Codna maps your repo deterministically, then sends an agent in with the exact context it
+needs to fix bugs fast. Every fix is verified by your own tests before it lands. Your key.
+Your infra. Your code stays yours.
+
 Public wrapper for Codna's GitHub Action channel. The action installs the published `codna`
 package from PyPI, then runs the same packaged local runtime users run from the CLI.
 
@@ -143,14 +147,14 @@ never a public issue.
 
 ## Related repositories
 
-Open-source repositories from the Algenta team. The Algenta engine itself is proprietary; everything listed here is Apache-2.0. Issues and discussions are welcome in whichever repository owns the code.
+Open-source tooling around Algenta, from the Algenta team. The Algenta engine itself is proprietary; everything listed here is Apache-2.0. Issues and discussions are welcome in whichever repository owns the code.
 
-- [thyn-ai/algenta-sdk](https://github.com/thyn-ai/algenta-sdk) — Python & TypeScript SDKs for the Algenta decision engine: governed tool profiles, execution receipts, approvals.
+- [thyn-ai/algenta-sdk](https://github.com/thyn-ai/algenta-sdk) — Python and TypeScript SDKs for Algenta: governed data queries, simulations, decision memory with execution receipts, agent runs with approvals.
 - [thyn-ai/algenta-integrations](https://github.com/thyn-ai/algenta-integrations) — Framework integrations for Algenta: LangChain, LlamaIndex, pydantic-ai, MAF, Haystack, LiteLLM, Ray Serve, vLLM, Vercel AI SDK and n8n.
 - [thyn-ai/mojo-kernels](https://github.com/thyn-ai/mojo-kernels) — Clean-room Mojo kernels as drop-in accelerators for popular Python/TypeScript libraries, with bit-exact parity and pure-language fallbacks.
 - [thyn-ai/security-toolchain](https://github.com/thyn-ai/security-toolchain) — The pinned, checksum-verified security toolchain (Gitleaks, Opengrep, OSV-Scanner, Trivy config, actionlint) that every thyn-ai repository runs locally and in CI.
-- [thyn-ai/feedback](https://github.com/thyn-ai/feedback) — Public issue intake for the Algenta family and the Codna GitHub App.
-- [thyn-ai/codna-action](https://github.com/thyn-ai/codna-action) (this repository) — Public GitHub Action wrapper for Codna.
+- [thyn-ai/feedback](https://github.com/thyn-ai/feedback) — Public issue intake for the open-source tooling around Algenta and for the Codna GitHub App.
+- [thyn-ai/codna-action](https://github.com/thyn-ai/codna-action) (this repository) — GitHub Action for Codna: fix, review or secure a repository in CI through the same packaged local runtime the CLI uses.
 
 ## License
 

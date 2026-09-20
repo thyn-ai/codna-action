@@ -9,5 +9,5 @@ installs the published `codna` package from PyPI and runs it, together with
 the repository's documentation and automation. The `codna` package itself --
 the Codna CLI, its packaged local runtime and the agent-core sidecar it ships
 -- is separately distributed and is not included here; it is subject to its
-own license terms, not to this repository's LICENSE. The Algenta Engine is
+own license terms, not to this repository's LICENSE. The Algenta engine is
 likewise separately distributed and proprietary.
