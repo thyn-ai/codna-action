@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   smoke:
-    uses: thyn-ai/security-toolchain/.github/workflows/security-smoke.yml@a5dbd1f75e95943a6bcf4d6e76d23cd769e9240c # v0.1.15
+    uses: thyn-ai/security-toolchain/.github/workflows/security-smoke.yml@fd4969a5e4e28afef68288224ac151e8e7258adc # v0.1.16
     permissions:
       contents: read
     with:
